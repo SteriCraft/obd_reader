@@ -40,7 +40,11 @@ def connect(_port, _baudrate, _protocol):
 	global connection
 
 	if (_baudrate == "Auto"):
-		connection = obd.OBD(_port)
+		try:
+			connection = obd.OBD(_port)
+		except serial.serialutil.SerialException:
+			print(f"[OBD Reader Error]: Couldn't connect to port \"{_port}\"")
+			return False
 	else:
 		if (_protocol == 3): # Protocol auto select
 			connection = obd.OBD(_port, _baudrate)

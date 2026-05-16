@@ -15,12 +15,6 @@ import data
 import commands_units
 
 
-# -- SAVE RECORDINGS TO DISK --
-# TODO: Save recordings to disk at all times (and removing them removes them from disk)
-# TODO: Export button should become "See recording files", since 'exporting' is handled by storing everything to the disk at all times
-
-
-
 def make_toggle_button(_parent, _text_, _command = None):
 	btn = tk.Button(_parent, text = _text_, relief = tk.RAISED, wraplength = 100, width = 10, height = 4)
 

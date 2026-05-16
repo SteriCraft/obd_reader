@@ -2,3 +2,4 @@ elm-venv/
 __pycache__/
 *.sh
 *.log
+*.bat
