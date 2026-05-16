@@ -1,5 +1,3 @@
-#!/home/crazutyx/coding/python/elm327_emulator/elm-venv/bin/python3
-
 # Libraries
 import tkinter as tk
 import time
