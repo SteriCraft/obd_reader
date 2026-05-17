@@ -44,7 +44,7 @@ class OBD_Data_Record_Cycle:
 	def __init__(self, _vehicle, _recorded_PIDs):
 		self.name = ""
 		self.vehicle = _vehicle
-		self.recorded_PIDs = [pid for pid in _recorded_PIDs if pid != 0] # Given list holds 0s for unselected PIDs
+		self.recorded_PIDs = _recorded_PIDs
 		self.data = [] # Empty list of OBD_Data_Unit
 
 	def addDataUnit(self, _data_unit):
@@ -261,8 +261,11 @@ def start_recording_data():
 	global current_recording
 
 	recording = True
-	data_recordings.append(OBD_Data_Record_Cycle(current_vehicle, record_ui.selected_PIDs))
+	recorded_PIDs = [pid for pid in record_ui.selected_PIDs if pid != 0] # Given list holds 0s for unselected PIDs
+
+	data_recordings.append(OBD_Data_Record_Cycle(current_vehicle, recorded_PIDs))
 	current_recording = data_recordings[-1]
+	record_ui.init_graphs(recorded_PIDs)
 
 
 

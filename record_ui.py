@@ -50,11 +50,11 @@ pids_buttons = []
 
 record_stop_button = None
 view_raw_data_button = None
-export_button = None
+open_recordings_folder_button = None
 recordings_list_label = None
 recordings_list_combo = None
 record_vehicle_label = None
-remove_recording_button = None
+delete_recording_button = None
 
 # Charts
 fig1, fig2 = None, None,
@@ -98,11 +98,11 @@ def setup_record_dialog():
 
 	global record_stop_button
 	global view_raw_data_button
-	global export_button
+	global open_recordings_folder_button
 	global recordings_list_label
 	global recordings_list_combo
 	global record_vehicle_label
-	global remove_recording_button
+	global delete_recording_button
 
 	def on_close():
 		global warning_already_shown
@@ -184,14 +184,17 @@ def setup_record_dialog():
 	ax1.set_ylabel("", color = colors[0])
 	ax1.grid(True, linestyle = "--", alpha = 0.5)
 	ax1.margins(x = 0)
+	ax1.xaxis.set_visible(False)
+	ax1.yaxis.set_visible(False)
 
 	ax2 = ax1.twinx()
 	ax2.yaxis.set_label_position("right")
-	ax2.set_ylabel("", color = colors[1])
+	ax2.set_ylabel("", color = colors[2])
 	ax2.margins(x = 0)
+	ax2.yaxis.set_visible(False) # Hiding X axis for the twinx has no effect
 
 	line1, = ax1.plot([], [], color = colors[0])
-	line2, = ax2.plot([], [], color = colors[1])
+	line2, = ax2.plot([], [], color = colors[2])
 
 	charts1_2_canvas = FigureCanvasTkAgg(fig1, master = charts_buttons_frame)
 	charts1_2_canvas.draw()
@@ -201,16 +204,19 @@ def setup_record_dialog():
 	fig2.patch.set_facecolor(utils.get_bg_color(record_dialog))
 
 	ax3.xaxis.set_major_formatter(DateFormatter("%H:%M:%S"))
-	ax3.set_ylabel("", color = colors[2])
+	ax3.set_ylabel("", color = colors[1])
 	ax3.grid(True, linestyle = "--", alpha = 0.5)
 	ax3.margins(x = 0)
+	ax3.xaxis.set_visible(False)
+	ax3.yaxis.set_visible(False)
 
 	ax4 = ax3.twinx()
 	ax4.yaxis.set_label_position("right")
 	ax4.set_ylabel("", color = colors[3])
 	ax4.margins(x = 0)
+	ax4.yaxis.set_visible(False) # Hiding X axis for the twinx has no effect
 
-	line3, = ax3.plot([], [], color = colors[2])
+	line3, = ax3.plot([], [], color = colors[1])
 	line4, = ax4.plot([], [], color = colors[3])
 
 	charts3_4_canvas = FigureCanvasTkAgg(fig2, master = charts_buttons_frame)
@@ -232,14 +238,14 @@ def setup_record_dialog():
 
 		record_stop_button.config(text = "Stop recording" if data.recording else "Start recording")
 		view_raw_data_button.config(state = tk.DISABLED if data.recording else tk.NORMAL) # Not enabled if there is no recording selected (so no recording stored)
-		export_button.config(state = tk.DISABLED if data.recording else tk.NORMAL) # Not enabled if there is no recording selected (so no recording stored)
+		open_recordings_folder_button.config(state = tk.DISABLED if data.recording else tk.NORMAL) # Not enabled if there is no recording selected (so no recording stored)
 
 		for btn in pids_buttons:
 			btn.config(state = tk.DISABLED if data.recording else tk.NORMAL)
 
 	record_stop_button = tk.Button(general_management_frame, text = "Start recording", width = 30, state = tk.DISABLED, command = start_stop_recording)
 	view_raw_data_button = tk.Button(general_management_frame, text = "View raw data", width = 30, state = tk.DISABLED, command = open_raw_data_dialog)
-	export_button = tk.Button(general_management_frame, text = "Export data", width = 30, state = tk.DISABLED)
+	open_recordings_folder_button = tk.Button(general_management_frame, text = "Open recordings folder", width = 30, state = tk.DISABLED)
 
 	# Recordings management buttons
 	recordings_list_label = tk.Label(recordings_list_frame, text = "Recordings:")
@@ -248,7 +254,7 @@ def setup_record_dialog():
 	recordings_list_combo.bind("<<ComboboxSelected>>", on_recording_selected)
 
 	record_vehicle_label = tk.Label(general_management_frame, text = f"Vehicle: --")
-	remove_recording_button = tk.Button(general_management_frame, text = "Remove recording", width = 30, state = tk.DISABLED, command = remove_selected_recording)
+	delete_recording_button = tk.Button(general_management_frame, text = "Delete recording", width = 30, state = tk.DISABLED, command = delete_selected_recording)
 
 	fill_recordings_list_combo() # Done at the end because the recording selected by default may be about another vehicle
 
@@ -284,12 +290,12 @@ def pack_record_dialog():
 
 	record_stop_button.grid(row = 0, column = 0, padx = 30, pady = 5)
 	view_raw_data_button.grid(row = 1, column = 0, padx = 30, pady = 5)
-	export_button.grid(row = 2, column = 0, padx = 30)
+	open_recordings_folder_button.grid(row = 2, column = 0, padx = 30)
 
 	recordings_list_label.pack(side = tk.LEFT, anchor = "w")
 	recordings_list_combo.pack(side = tk.LEFT, anchor = "e")
 	record_vehicle_label.grid(row = 1, column = 1)
-	remove_recording_button.grid(row = 2, column = 1)
+	delete_recording_button.grid(row = 2, column = 1)
 
 
 
@@ -315,8 +321,8 @@ def on_recording_selected(event = None):
 		selected_recording = None
 
 	view_raw_data_button.config(state = tk.NORMAL if selected_recording != None else tk.DISABLED)
-	export_button.config(state = tk.NORMAL if selected_recording != None else tk.DISABLED)
-	remove_recording_button.config(state = tk.NORMAL if selected_recording != None else tk.DISABLED)
+	open_recordings_folder_button.config(state = tk.NORMAL if selected_recording != None else tk.DISABLED)
+	delete_recording_button.config(state = tk.NORMAL if selected_recording != None else tk.DISABLED)
 
 	# Update PIDs
 	selected_PIDs = [0, 0, 0, 0]
@@ -348,7 +354,7 @@ def on_recording_selected(event = None):
 
 
 
-def remove_selected_recording():
+def delete_selected_recording():
 	global selected_recording
 
 	data.data_recordings.remove(selected_recording)
@@ -400,9 +406,9 @@ def fill_graphs_w_selected_recording():
 		x_data.append(dataUnit.timestamp)
 
 	# Fill y_data with recording's selected PIDs
-	selected_recording_PIDs = list(selected_recording.data[-1].values.keys())
+	selected_recording_PIDs = selected_recording.recorded_PIDs
 
-	line1_unit_str = ""
+	line1_unit_str = "" # Identify units at the same time
 	line2_unit_str = ""
 	line3_unit_str = ""
 	line4_unit_str = ""
@@ -457,6 +463,8 @@ def fill_graphs_w_selected_recording():
 	ax1.autoscale_view()
 	ax1.set_ylim(0, max(line1_y_data) * 1.1)
 	ax1.set_ylabel(line1_unit_str if selected_recording_PIDs[0] != 0 else "")
+	ax1.xaxis.set_visible(True)
+	ax1.yaxis.set_visible(True)
 
 	# Graph 2
 	line3.set_data(x_data, line2_y_data) # Selecting PID 2 shows up on the second graph, on the left
@@ -466,6 +474,7 @@ def fill_graphs_w_selected_recording():
 		ax3.autoscale_view()
 		ax3.set_ylim(0, max(line2_y_data) * 1.1)
 		ax3.set_ylabel(line2_unit_str if selected_recording_PIDs[1] != 0 else "")
+		ax3.yaxis.set_visible(True)
 	else:
 		ax3.set_ylabel("")
 
@@ -477,6 +486,8 @@ def fill_graphs_w_selected_recording():
 		ax2.autoscale_view()
 		ax2.set_ylim(0, max(line3_y_data) * 1.1)
 		ax2.set_ylabel(line3_unit_str if selected_recording_PIDs[2] != 0 else "")
+		ax2.xaxis.set_visible(True)
+		ax2.yaxis.set_visible(True)
 	else:
 		ax2.set_ylabel("")
 
@@ -488,6 +499,7 @@ def fill_graphs_w_selected_recording():
 		ax4.autoscale_view()
 		ax4.set_ylim(0, max(line4_y_data) * 1.1)
 		ax4.set_ylabel(line4_unit_str if selected_recording_PIDs[3] != 0 else "")
+		ax4.yaxis.set_visible(True)
 	else:
 		ax4.set_ylabel("")
 
@@ -496,11 +508,25 @@ def fill_graphs_w_selected_recording():
 
 
 
-def plot_graph_update(_line, _line_y_data, _ax, _unit):
+def init_graphs(_recorded_PIDs):
+	# This method cannot identify units, because it's only known once data is retrieved
+
+	ax1.xaxis.set_visible(len(_recorded_PIDs) > 0)
+	ax1.yaxis.set_visible(len(_recorded_PIDs) > 0)
+
+	ax3.xaxis.set_visible(len(_recorded_PIDs) > 1)
+	ax3.yaxis.set_visible(len(_recorded_PIDs) > 1)
+
+	ax2.yaxis.set_visible(len(_recorded_PIDs) > 2)
+
+	ax4.yaxis.set_visible(len(_recorded_PIDs) > 3)
+
+
+
+def plot_graph_update(_line, _line_y_data, _ax):
 	_line.set_data(x_data, _line_y_data)
 	_ax.relim()
 	_ax.autoscale_view()
-	_ax.set_ylabel(_unit)
 
 	if len(_line_y_data) > 0:
 		if max(_line_y_data) != 0:
@@ -508,9 +534,12 @@ def plot_graph_update(_line, _line_y_data, _ax, _unit):
 
 
 
+values_units_found = False
 update1_2 = True # See draw() calls below
+
 def update_charts():
-	global warning_already_shown
+	global value1_unit_str
+	global values_units_found
 	global update1_2
 
 	if data.current_recording == None or record_dialog == None or obd_connect.is_connection_lost():
@@ -554,7 +583,6 @@ def update_charts():
 	# --- Add missing data to the graphs' data lists ---
 	failed_PIDs = []
 
-	# Will be used later to identify the unit
 	value1 = None # Top left
 	value2 = None # Bottom left
 	value3 = None # Top right
@@ -567,7 +595,16 @@ def update_charts():
 		value3 = dataUnit.get(selected_PIDs[2]) if selected_PIDs[2] != 0 else None
 		value4 = dataUnit.get(selected_PIDs[3]) if selected_PIDs[3] != 0 else None
 
-		# Gathering precise data about failed PID data retrieval, for the warning dialog
+		# Identify units on first data analysis
+		if not values_units_found:
+			ax1.set_ylabel(str(value1.value.units) if value1 != None else "")
+			ax3.set_ylabel(str(value2.value.units) if value2 != None else "")
+			ax2.set_ylabel(str(value3.value.units) if value3 != None else "")
+			ax4.set_ylabel(str(value4.value.units) if value4 != None else "")
+
+			values_units_found = True
+
+		# Gather precise data about failed PID data retrieval, for the warning dialog
 		if value1 == None and selected_PIDs[0] != 0:
 			if not selected_PIDs[0] in failed_PIDs:
 				failed_PIDs.append(selected_PIDs[0])
@@ -608,19 +645,19 @@ def update_charts():
 	# ------- Plot graphs -------
 	# Top left
 	if selected_PIDs[0] != 0:
-		plot_graph_update(line1, line1_y_data, ax1, str(value1.value.units) if value1 != None else "")
+		plot_graph_update(line1, line1_y_data, ax1)
 
 	# Bottom left
 	if selected_PIDs[1] != 0:
-		plot_graph_update(line3, line3_y_data, ax3, str(value2.value.units) if value2 != None else "")
+		plot_graph_update(line3, line3_y_data, ax3)
 
 	# Top right
 	if selected_PIDs[2] != 0:
-		plot_graph_update(line2, line2_y_data, ax2, str(value3.value.units) if value3 != None else "")
+		plot_graph_update(line2, line2_y_data, ax2)
 
 	# Bottom right
 	if selected_PIDs[3] != 0:
-		plot_graph_update(line4, line4_y_data, ax4, str(value4.value.units) if value4 != None else "")
+		plot_graph_update(line4, line4_y_data, ax4)
 
 	# ---> MATPLOTLIB ISSUE ON WINDOWS <---
 	# Calling 2 times draw() at the same time freezes matplotlib, so we alternate on each update cycle
@@ -655,6 +692,9 @@ def reset_graphs():
 	global line2_y_data
 	global line3_y_data
 	global line4_y_data
+	global values_units_found
+
+	values_units_found = False
 
 	x_data = []
 	line1_y_data = []
@@ -668,9 +708,18 @@ def reset_graphs():
 	line4.set_data(x_data, line4_y_data)
 
 	ax1.set_ylabel("")
+	ax1.xaxis.set_visible(False)
+	ax1.yaxis.set_visible(False)
+
 	ax2.set_ylabel("")
+	ax2.yaxis.set_visible(False) # Hiding X axis for the twinx has no effect
+
 	ax3.set_ylabel("")
+	ax3.xaxis.set_visible(False)
+	ax3.yaxis.set_visible(False)
+
 	ax4.set_ylabel("")
+	ax4.yaxis.set_visible(False) # Hiding X axis for the twinx has no effect
 
 	charts1_2_canvas.draw()
 	charts3_4_canvas.draw()
