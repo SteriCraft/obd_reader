@@ -1,13 +1,10 @@
 # TODO LIST
 ## Record dialog
-- 2 recordings cannot have the same name
-- 2 vehicles cannot have the same name
-- Vehicles may have a licence plate
-- Vehicles may have a custom name
 - Add a horizontal scrollbar on graphs, to see more than one minute of data (except when recording)
 - Recordings must be saved on disk somewhere (and files removed when the recording is deleted)
 - Ask the user to confirm recording deletion
 - When viewing a recording, the specification of the vehicle shall be shown
+- Matplotlib issue may require a check, given that on linux this may not be an issue
 
 ## Connection
 - Catch "Failed to set baudrate" to enrich the information label ("Invalid baudrate")

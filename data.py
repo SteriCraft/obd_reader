@@ -19,14 +19,33 @@ import custom_gauges_ui
 import record_ui
 
 
-CONFIG_PATH = os.path.expanduser("~/.config/obd_reader/vehicles.json")
+if os.name == 'nt':  # Windows
+    CONFIG_DIR = os.path.join(os.environ['APPDATA'], 'obd_reader')
+else:  # Linux
+    CONFIG_DIR = os.path.expanduser('~/.config/obd_reader')
+
+CONFIG_PATH = os.path.join(CONFIG_DIR, 'vehicles.json')
+
 
 class Vehicle:
-	def __init__(self):
+	def __init__(self, _custom_name):
+		self.custom_name = _custom_name # Mandatory
 		self.brand = ""
 		self.model = ""
 		self.fuel_tank_capacity = 0 # Liters
 		self.supported_pids = []
+
+	def get_full_name(self):
+		full_name_str = self.custom_name
+
+		if self.brand != "" and self.model != "":
+			full_name_str += " (" + self.brand + " " + self.model + ")"
+		elif self.brand != "":
+			full_name_str += " (" + self.brand + ")"
+		elif self.model != "":
+			full_name_str += " (" + self.model + ")"
+
+		return full_name_str
 
 class OBD_Data_Unit:
 	def __init__(self):
@@ -51,7 +70,7 @@ class OBD_Data_Record_Cycle:
 		self.data.append(_data_unit)
 
 vehicles = []
-current_vehicle = Vehicle()
+current_vehicle = None
 
 recording = False
 data_recordings = []
@@ -75,8 +94,8 @@ def add_vehicle(_new_vehicle):
 
 
 
-def has_vehicle(_brand, _model):
-	return any(v.brand == _brand and v.model == _model for v in vehicles)
+def has_vehicle(_name):
+	return any(v.custom_name == _name for v in vehicles)
 
 
 
@@ -223,6 +242,7 @@ def save_vehicles_data():
 
 	data = [
 		{
+			"custom_name": v.custom_name,
 			"brand": v.brand,
 			"model": v.model,
 			"fuel_tank_capacity": v.fuel_tank_capacity
@@ -243,13 +263,14 @@ def load_vehicles_data():
 		data = json.load(f)
 
 		for entry in data:
-			v = Vehicle()
+			v = Vehicle(entry.get("custom_name", ""))
 
 			v.brand = entry.get("brand", "")
 			v.model = entry.get("model", "")
 			v.fuel_tank_capacity = entry.get("fuel_tank_capacity", "")
 
-			vehicles.append(v)
+			if v.custom_name != "": # A vehicule without a custom name is invalid
+				vehicles.append(v)
 		
 		return vehicles
 
@@ -275,3 +296,8 @@ def stop_recording_data():
 
 	recording = False
 	current_recording = None
+
+
+
+def has_recording(_name):
+	return any(r.name == _name for r in data_recordings)

@@ -21,7 +21,7 @@ def load_vehicles_list():
 	vehicles_str_list = []
 
 	for vehicle in data.vehicles:
-		vehicles_str_list.append(vehicle.brand + " " + vehicle.model)
+		vehicles_str_list.append(vehicle.get_full_name())
 
 	vehicles_list_combo["values"] = vehicles_str_list
 	vehicles_list_combo.set(vehicles_str_list[0] if len(vehicles_str_list) > 0 else "")
@@ -77,7 +77,7 @@ def open_choose_vehicle_dialog(_while_connected = False):
 
 	def find_selected_vehicle():
 		selection = vehicles_list_combo.get()
-		return next((v for v in data.vehicles if f"{v.brand} {v.model}" == selection), None)
+		return next((v for v in data.vehicles if f"{v.get_full_name()}" == selection), None)
 
 	# Saved vehicles list
 	vehicles_list_label = tk.Label(dialog, text = "Saved vehicles")
@@ -106,7 +106,6 @@ def open_edit_vehicle_dialog(_previous_dialog, _vehicle = None):
 	dialog = tk.Toplevel(_previous_dialog)
 
 	dialog.title("Edit vehicle" if _vehicle else "New vehicle")
-	dialog.geometry("300x200")
 	dialog.resizable(False, False)
 
 	dialog.transient(_previous_dialog) # Ties the dialog to the previous dialog
@@ -119,12 +118,12 @@ def open_edit_vehicle_dialog(_previous_dialog, _vehicle = None):
 	dialog.columnconfigure(1, weight = 1)
 
 	def save_button_validity_check(*args):
-		if data.has_vehicle(brand_var.get().strip(), model_var.get().strip()):
+		if data.has_vehicle(custom_name_var.get()):
 			info_label.config(text = "Already exists")
 			save_button.config(state = tk.DISABLED)
 		else:
 			info_label.config(text = "")
-			save_button.config(state = tk.NORMAL if (brand_var.get().strip() and model_var.get().strip()) else tk.DISABLED)
+			save_button.config(state = tk.NORMAL if custom_name_var.get() != "" else tk.DISABLED)
 
 	def validate_text_input(new_value): # Max 16 characters
 		return len(new_value) <= 16
@@ -138,46 +137,56 @@ def open_edit_vehicle_dialog(_previous_dialog, _vehicle = None):
 	valid_text_entry_cmd = ui.root.register(validate_text_input)
 	valid_fuel_tank_cap_entry_cmd = ui.root.register(validate_fuel_tank_capacity_input)
 
+	# Custom name input field
+	custom_name_var = tk.StringVar()
+	custom_name_var.set(_vehicle.custom_name if _vehicle else "")
+	custom_name_var.trace("w", save_button_validity_check)
+
+	custom_name_label = tk.Label(dialog, text = "*Custom name:")
+	custom_name_entry = tk.Entry(dialog, width = 20, textvariable = custom_name_var, state = tk.NORMAL, validate = "key", validatecommand = (valid_text_entry_cmd, "%P"))
+
+	custom_name_label.grid(row = 0, column = 0, sticky = "e", padx = (10, 5), pady = (10, 5))
+	custom_name_entry.grid(row = 0, column = 1, sticky = "w", padx = (10, 5), pady = (10, 5))
+
 	# Brand input field
 	brand_var = tk.StringVar()
 	brand_var.set(_vehicle.brand if _vehicle else "")
-	brand_var.trace("w", save_button_validity_check)
 
-	brand_label = tk.Label(dialog, text = "*Brand:")
+	brand_label = tk.Label(dialog, text = "Brand:")
 	brand_entry = tk.Entry(dialog, width = 20, textvariable = brand_var, state = tk.NORMAL, validate = "key", validatecommand = (valid_text_entry_cmd, "%P"))
 
-	brand_label.grid(row = 0, column = 0, sticky = "e", padx = 5, pady = (10, 5))
-	brand_entry.grid(row = 0, column = 1, sticky = "w", padx = 5, pady = (10, 5))
+	brand_label.grid(row = 1, column = 0, sticky = "e", padx = (10, 5), pady = (10, 5))
+	brand_entry.grid(row = 1, column = 1, sticky = "w", padx = (10, 5), pady = (10, 5))
 
 	# Model input field
 	model_var = tk.StringVar()
 	model_var.set(_vehicle.model if _vehicle else "")
-	model_var.trace("w", save_button_validity_check)
 
-	model_label = tk.Label(dialog, text = "*Model:")
+	model_label = tk.Label(dialog, text = "Model:")
 	model_entry = tk.Entry(dialog, width = 20, textvariable = model_var, state = tk.NORMAL, validate = "key", validatecommand = (valid_text_entry_cmd, "%P"))
 
-	model_label.grid(row = 1, column = 0, sticky = "e", padx = 5, pady = 5)
-	model_entry.grid(row = 1, column = 1, sticky = "w", padx = 5)
+	model_label.grid(row = 2, column = 0, sticky = "e", padx = (10, 5), pady = 5)
+	model_entry.grid(row = 2, column = 1, sticky = "w", padx = (10, 5))
 
 	# Fuel tank capacity input field
 	fuel_tank_capacity_label = tk.Label(dialog, text = "Fuel tank (L):")
 	fuel_tank_capacity_entry = tk.Entry(dialog, width = 20, state = tk.NORMAL, validate = "key", validatecommand = (valid_fuel_tank_cap_entry_cmd, "%P"))
 	fuel_tank_capacity_entry.insert(0, str(_vehicle.fuel_tank_capacity) if _vehicle else "")
 
-	fuel_tank_capacity_label.grid(row = 2, column = 0, sticky = "e", padx = 5, pady = 5)
-	fuel_tank_capacity_entry.grid(row = 2, column = 1, sticky = "w", padx = 5)
+	fuel_tank_capacity_label.grid(row = 3, column = 0, sticky = "e", padx = (10, 5), pady = 5)
+	fuel_tank_capacity_entry.grid(row = 3, column = 1, sticky = "w", padx = (10, 5))
 
 	# Buttons
 	buttons_frame = tk.Frame(dialog)
-	buttons_frame.grid(row = 3, column = 0, columnspan = 2, pady = (20, 5))
+	buttons_frame.grid(row = 4, column = 0, columnspan = 2, pady = (20, 5))
 
 	# Information label
 	info_label = tk.Label(dialog, text = "", fg = "red")
-	info_label.grid(row = 4, columnspan = 2, padx = 5)
+	info_label.grid(row = 5, columnspan = 2, padx = 5, pady = (0, 15))
 
-	def save_vehicle_infos(_brand, _model, _fuel_tank_capacity):
+	def save_vehicle_infos(_custom_name, _brand, _model, _fuel_tank_capacity):
 		if _vehicle:
+			_vehicle.custom_name = _custom_name
 			_vehicle.brand = _brand
 			_vehicle.model = _model
 			_vehicle.fuel_tank_capacity = _fuel_tank_capacity
@@ -185,7 +194,7 @@ def open_edit_vehicle_dialog(_previous_dialog, _vehicle = None):
 			data.save_vehicles_data()
 			load_vehicles_list()
 		else:
-			new_vehicle = data.Vehicle()
+			new_vehicle = data.Vehicle(_custom_name)
 			new_vehicle.brand = _brand
 			new_vehicle.model = _model
 			new_vehicle.fuel_tank_capacity = _fuel_tank_capacity
@@ -197,7 +206,7 @@ def open_edit_vehicle_dialog(_previous_dialog, _vehicle = None):
 
 		dialog.destroy()
 
-	save_button = tk.Button(buttons_frame, text = "Save", command = lambda: save_vehicle_infos(brand_entry.get(), model_entry.get(), fuel_tank_capacity_entry.get()))
+	save_button = tk.Button(buttons_frame, text = "Save", command = lambda: save_vehicle_infos(custom_name_entry.get(), brand_entry.get(), model_entry.get(), fuel_tank_capacity_entry.get()))
 	save_button_validity_check()
 	cancel_button = tk.Button(buttons_frame, text = "Cancel", command = dialog.destroy)
 

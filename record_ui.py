@@ -316,7 +316,7 @@ def on_recording_selected(event = None):
 				selected_recording = r
 				break
 
-		record_vehicle_label.config(text = f"Vehicle: {selected_recording.vehicle.brand} {selected_recording.vehicle.model}")
+		record_vehicle_label.config(text = f"Vehicle: {selected_recording.vehicle.get_full_name()}")
 	else:
 		selected_recording = None
 
@@ -378,7 +378,7 @@ def fill_recordings_list_combo():
 		recordings_list_combo.set(recordings_list[-1])
 	else:
 		recordings_list_combo.set("")
-		record_vehicle_label.config(text = f"Vehicle: {data.current_vehicle.brand} {data.current_vehicle.model}")
+		record_vehicle_label.config(text = f"Vehicle: {data.current_vehicle.get_full_name()}")
 
 	on_recording_selected()
 
@@ -660,6 +660,9 @@ def update_charts():
 		plot_graph_update(line4, line4_y_data, ax4)
 
 	# ---> MATPLOTLIB ISSUE ON WINDOWS <---
+	# TODO: See if it's necessary to check if the OS is Windows, because may not be an issue on Linux
+	# (if os.name == 'nt':)
+	#
 	# Calling 2 times draw() at the same time freezes matplotlib, so we alternate on each update cycle
 	if update1_2:
 		charts1_2_canvas.draw()
@@ -724,6 +727,9 @@ def reset_graphs():
 	charts1_2_canvas.draw()
 	charts3_4_canvas.draw()
 
+	for btn in pids_buttons:
+			btn.config(relief = tk.RAISED, fg = "black")
+
 
 
 # ======= SAVE RECORDING DIALOG =======
@@ -738,12 +744,20 @@ def open_save_recording_dialog(_on_close = False):
 	dialog.focus_force() # Catches keyboard focus
 	dialog.protocol("WM_DELETE_WINDOW", lambda : None) # Not closable
 
-	default_name = selected_recording.vehicle.model + " " + selected_recording.data[-1].timestamp.strftime("%d/%m/%Y %H:%M")
+	default_name = selected_recording.vehicle.custom_name + " " + selected_recording.data[-1].timestamp.strftime("%d/%m/%Y %H:%M")
 
 	tk.Label(dialog, text = "Recording name:").pack(padx = 20, pady = (20, 5))
 
 	def check_name(*args):
-		ok_button.config(state = tk.NORMAL if name_var.get().strip() else tk.DISABLED)
+		if name_var.get() == "":
+			ok_button.config(state = tk.DISABLED)
+			info_label.config(text = "")
+		elif data.has_recording(name_var.get()): # Another recording has the same name
+			ok_button.config(state = tk.DISABLED)
+			info_label.config(text = "Already exists")
+		else:
+			ok_button.config(state = tk.NORMAL)
+			info_label.config(text = "")
 
 	name_var = tk.StringVar(value = default_name)
 	name_var.trace("w", check_name)
@@ -766,25 +780,34 @@ def open_save_recording_dialog(_on_close = False):
 
 		warning_already_shown = False
 		data.stop_recording_data()
+		reset_graphs()
+		dialog.destroy()
 
-		if raw_data_dialog != None:
-			raw_data_dialog.destroy()
+		if _on_close:
+			if raw_data_dialog != None:
+				raw_data_dialog.destroy()
 
-		record_dialog.destroy()
+			record_dialog.destroy()
 
 	# Buttons
 	buttons_frame = tk.Frame(dialog)
-	buttons_frame.pack(pady = (0, 20))
+	buttons_frame.pack(pady = (0, 5))
 
-	ok_button = tk.Button(buttons_frame, text = "Save", command = on_save, state = tk.NORMAL if name_var.get().strip() else tk.DISABLED)
-	ok_button.pack(side = tk.LEFT, padx = 5)
+	ok_button = tk.Button(buttons_frame, text = "Save", command = on_save)
+	ok_button.pack(side = tk.LEFT, padx = 10)
+
+	discard_button = tk.Button(buttons_frame, text = "Discard", command = on_discard)
+	discard_button.pack(side = tk.LEFT, padx = 5)
 
 	if _on_close:
-		discard_button = tk.Button(buttons_frame, text = "Discard", command = on_discard)
-		discard_button.pack(side = tk.LEFT, padx = 5)
-
 		cancel_button = tk.Button(buttons_frame, text = "Cancel", command = dialog.destroy)
 		cancel_button.pack(side = tk.LEFT, padx = 5)
+
+	# Information label
+	info_label = tk.Label(dialog, text = "", fg = "red")
+	info_label.pack(pady = (0, 15))
+
+	check_name() # Configure ok_button, done at the end because info_label has to be defined
 
 
 
