@@ -13,6 +13,7 @@ import obd_connect
 import ui
 import data
 import commands_units
+import utils
 
 
 def make_toggle_button(_parent, _text_, _command = None):
@@ -64,7 +65,7 @@ line3 = None
 line4 = None
 charts1_2_canvas = None
 charts3_4_canvas = None
-x_data = []
+x_data = [] # Holds timestamps
 line1_y_data = []
 line2_y_data = []
 line3_y_data = []
@@ -169,7 +170,7 @@ def setup_record_dialog():
 
 	for pid, description in data.current_vehicle.supported_pids:
 		if commands_units.is_PID_response_recordable.get(pid, False):
-			pids_buttons.append(make_toggle_button(pids_selection_frame, f"{("0" if pid < 16 else "") + hex(pid)[2:].upper()}\n{description}", lambda b, p = pid: on_toggle(b, p)))
+			pids_buttons.append(make_toggle_button(pids_selection_frame, f"{utils.hex_to_str_2_digits(pid)}\n{description}", lambda b, p = pid: on_toggle(b, p)))
 
 	charts_buttons_frame = tk.Frame(record_dialog)
 	general_management_frame = tk.Frame(charts_buttons_frame)
@@ -177,7 +178,7 @@ def setup_record_dialog():
 
 	# Charts 1 & 2
 	fig1, ax1 = plt.subplots()
-	fig1.patch.set_facecolor(record_dialog.cget("bg"))
+	fig1.patch.set_facecolor(utils.get_bg_color(record_dialog))
 
 	ax1.xaxis.set_major_formatter(DateFormatter("%H:%M:%S"))
 	ax1.set_ylabel("", color = colors[0])
@@ -197,7 +198,7 @@ def setup_record_dialog():
 
 	# Charts 3 & 4
 	fig2, ax3 = plt.subplots()
-	fig2.patch.set_facecolor(record_dialog.cget("bg"))
+	fig2.patch.set_facecolor(utils.get_bg_color(record_dialog))
 
 	ax3.xaxis.set_major_formatter(DateFormatter("%H:%M:%S"))
 	ax3.set_ylabel("", color = colors[2])
@@ -444,10 +445,10 @@ def fill_graphs_w_selected_recording():
 		line4_y_data = [0] * val_count
 
 	# ======= PLOT GRAPHS =======
-	# Selecting PID 1 shows up on the first graph, on the left
-	# Selecting PID 2 shows up on the second graph, on the left
-	# Selecting PID 3 shows up on the first graph, on the right
-	# Selecting PID 4 shows up on the second graph, on the right
+	# Selecting PID 1 shows up on the first graph, on the left   -> Line 1
+	# Selecting PID 2 shows up on the second graph, on the left  -> Line 3
+	# Selecting PID 3 shows up on the first graph, on the right  -> Line 2
+	# Selecting PID 4 shows up on the second graph, on the right -> Line 4
 
 	# Graph 1 (dealt with a bit differently, no checks required because we are supposed to have at least on PID data)
 	line1.set_data(x_data, line1_y_data) # Selecting PID 1 shows up on the first graph, on the left
@@ -495,118 +496,144 @@ def fill_graphs_w_selected_recording():
 
 
 
+def plot_graph_update(_line, _line_y_data, _ax, _unit):
+	_line.set_data(x_data, _line_y_data)
+	_ax.relim()
+	_ax.autoscale_view()
+	_ax.set_ylabel(_unit)
+
+	if len(_line_y_data) > 0:
+		if max(_line_y_data) != 0:
+			_ax.set_ylim(0, max(_line_y_data) * 1.1)
+
+
+
+update1_2 = True # See draw() calls below
 def update_charts():
 	global warning_already_shown
+	global update1_2
 
-	if data.last_data == None or record_dialog == None or obd_connect.is_connection_lost():
+	if data.current_recording == None or record_dialog == None or obd_connect.is_connection_lost():
 		return
 
 	if not data.recording:
 		return
 
-	if len(x_data) > 0:
-		if x_data[-1] == data.last_data.timestamp:
-			return
+	# Selecting PID 1 shows up on the first graph, on the left   -> Line 1
+	# Selecting PID 3 shows up on the first graph, on the right  -> Line 3
+	# Selecting PID 2 shows up on the second graph, on the left  -> Line 2
+	# Selecting PID 4 shows up on the second graph, on the right -> Line 4
 
-	# Retrieve values
-	failed_PIDs_count = 0
-	failed_PIDs = []
-
-	line1_last_val = data.last_data.get(selected_PIDs[0]) if selected_PIDs[0] != 0 else None
-	line2_last_val = data.last_data.get(selected_PIDs[1]) if selected_PIDs[1] != 0 else None
-	line3_last_val = data.last_data.get(selected_PIDs[2]) if selected_PIDs[2] != 0 else None
-	line4_last_val = data.last_data.get(selected_PIDs[3]) if selected_PIDs[3] != 0 else None
-
-	if line1_last_val == None and selected_PIDs[0] != 0: # Gathering precise data about failed PID data retrieval, for the warning dialog
-		failed_PIDs_count += 1
-		failed_PIDs.append(selected_PIDs[0])
-
-	if line2_last_val == None and selected_PIDs[1] != 0:
-		failed_PIDs_count += 1
-		failed_PIDs.append(selected_PIDs[1])
-
-	if line3_last_val == None and selected_PIDs[2] != 0:
-		failed_PIDs_count += 1
-		failed_PIDs.append(selected_PIDs[2])
-
-	if line4_last_val == None and selected_PIDs[3] != 0:
-		failed_PIDs_count += 1
-		failed_PIDs.append(selected_PIDs[3])
-
-	# X axis update
-	if failed_PIDs_count == selected_PIDs_count: # All data retrieval failed, we shall return before incrementing x_data list
-		return
-
-	x_data.append(data.last_data.timestamp)
-	
-	# Show only the last 60 seconds
-	cutoff = datetime.now() - timedelta(seconds = 60)
+	# Drop anything older than 30 seconds
+	cutoff = datetime.now() - timedelta(seconds = 30)
 	while x_data and x_data[0] < cutoff:
 		x_data.pop(0)
-		line1_y_data.pop(0)
-		line2_y_data.pop(0)
-		line3_y_data.pop(0)
-		line4_y_data.pop(0)
 
-	# ======= PLOT GRAPHS =======
-	# Selecting PID 1 shows up on the first graph, on the left
-	# Selecting PID 2 shows up on the second graph, on the left
-	# Selecting PID 3 shows up on the first graph, on the right
-	# Selecting PID 4 shows up on the second graph, on the right
-
-	# Graph 1
-	if line1_last_val != None:
-		line1_y_data.append(line1_last_val.value.magnitude)
-		line1.set_data(x_data, line1_y_data) # Selecting PID 1 shows up on the first graph, on the left
-
-		ax1.relim()
-		ax1.autoscale_view()
-		ax1.set_ylim(0, max(line1_y_data) * 1.1)
-		ax1.set_ylabel(str(line1_last_val.value.units) if selected_PIDs[0] != 0 else "")
-	else:
-		line1_y_data.append(0) # Ensure coherent lists dimensions
-
-	# Graph 2
-	if line2_last_val != None:
-		line2_y_data.append(line2_last_val.value.magnitude)
-		line3.set_data(x_data, line2_y_data) # Selecting PID 2 shows up on the second graph, on the left
+		if selected_PIDs[0] != 0:
+			line1_y_data.pop(0)
 		
-		ax3.relim()
-		ax3.autoscale_view()
-		ax3.set_ylim(0, max(line2_y_data) * 1.1)
-		ax3.set_ylabel(str(line2_last_val.value.units) if selected_PIDs[1] != 0 else "")
-	else:
-		line2_y_data.append(0) # Ensure coherent lists dimensions
-
-	# Graph 3
-	if line3_last_val != None:
-		line3_y_data.append(line3_last_val.value.magnitude)
-		line2.set_data(x_data, line3_y_data) # Selecting PID 3 shows up on the first graph, on the right
+		if selected_PIDs[2] != 0:
+			line2_y_data.pop(0)
 		
-		ax2.relim()
-		ax2.autoscale_view()
-		ax2.set_ylim(0, max(line3_y_data) * 1.1)
-		ax2.set_ylabel(str(line3_last_val.value.units) if selected_PIDs[2] != 0 else "")
-	else:
-		line3_y_data.append(0) # Ensure coherent lists dimensions
-
-	# Graph 4
-	if line4_last_val != None:
-		line4_y_data.append(line4_last_val.value.magnitude)
-		line4.set_data(x_data, line4_y_data) # Selecting PID 4 shows up on the second graph, on the right
+		if selected_PIDs[1] != 0:
+			line3_y_data.pop(0)
 		
-		ax4.relim()
-		ax4.autoscale_view()
-		ax4.set_ylim(0, max(line4_y_data) * 1.1)
-		ax4.set_ylabel(str(line4_last_val.value.units) if selected_PIDs[3] != 0 else "")
+		if selected_PIDs[3] != 0:
+			line4_y_data.pop(0)
+
+	# Compare to the last 60 seconds of current_recording
+	missing_dataUnits = []
+	for dataUnit in reversed(data.current_recording.data):
+		if dataUnit.timestamp < cutoff or dataUnit.timestamp in x_data:
+			break
+
+		missing_dataUnits.append(dataUnit)
+
+	missing_dataUnits = missing_dataUnits[::-1] # Ascending order
+
+	# --- Add missing data to the graphs' data lists ---
+	failed_PIDs = []
+
+	# Will be used later to identify the unit
+	value1 = None # Top left
+	value2 = None # Bottom left
+	value3 = None # Top right
+	value4 = None # Bottom right
+
+	for dataUnit in missing_dataUnits:
+		# Retrieve values
+		value1 = dataUnit.get(selected_PIDs[0]) if selected_PIDs[0] != 0 else None
+		value2 = dataUnit.get(selected_PIDs[1]) if selected_PIDs[1] != 0 else None
+		value3 = dataUnit.get(selected_PIDs[2]) if selected_PIDs[2] != 0 else None
+		value4 = dataUnit.get(selected_PIDs[3]) if selected_PIDs[3] != 0 else None
+
+		# Gathering precise data about failed PID data retrieval, for the warning dialog
+		if value1 == None and selected_PIDs[0] != 0:
+			if not selected_PIDs[0] in failed_PIDs:
+				failed_PIDs.append(selected_PIDs[0])
+		
+		if value2 == None and selected_PIDs[1] != 0:
+			if not selected_PIDs[1] in failed_PIDs:
+				failed_PIDs.append(selected_PIDs[1])
+		
+		if value3 == None and selected_PIDs[2] != 0:
+			if not selected_PIDs[2] in failed_PIDs:
+				failed_PIDs.append(selected_PIDs[2])
+		
+		if value4 == None and selected_PIDs[3] != 0:
+			if not selected_PIDs[3] in failed_PIDs:
+				failed_PIDs.append(selected_PIDs[3])
+
+		# If all data retrievals fail, this dataUnit is ignored before incrementing x_data list
+		if len(failed_PIDs) == selected_PIDs_count:
+			continue
+
+		# X axis update
+		x_data.append(dataUnit.timestamp)
+
+		# Update data lists
+		if selected_PIDs[0] != 0: # Top left
+			line1_y_data.append(value1.value.magnitude if value1 != None else 0) # Ensure coherent lists dimensions
+		
+		if selected_PIDs[1] != 0: # Bottom left
+			line3_y_data.append(value2.value.magnitude if value2 != None else 0) # Line inversion to show value2 on the second graph
+		
+		if selected_PIDs[2] != 0: # Top right
+			line2_y_data.append(value3.value.magnitude if value3 != None else 0)
+		
+		if selected_PIDs[3] != 0: # Bottom right
+			line4_y_data.append(value4.value.magnitude if value4 != None else 0)
+		
+
+	# ------- Plot graphs -------
+	# Top left
+	if selected_PIDs[0] != 0:
+		plot_graph_update(line1, line1_y_data, ax1, str(value1.value.units) if value1 != None else "")
+
+	# Bottom left
+	if selected_PIDs[1] != 0:
+		plot_graph_update(line3, line3_y_data, ax3, str(value2.value.units) if value2 != None else "")
+
+	# Top right
+	if selected_PIDs[2] != 0:
+		plot_graph_update(line2, line2_y_data, ax2, str(value3.value.units) if value3 != None else "")
+
+	# Bottom right
+	if selected_PIDs[3] != 0:
+		plot_graph_update(line4, line4_y_data, ax4, str(value4.value.units) if value4 != None else "")
+
+	# ---> MATPLOTLIB ISSUE ON WINDOWS <---
+	# Calling 2 times draw() at the same time freezes matplotlib, so we alternate on each update cycle
+	if update1_2:
+		charts1_2_canvas.draw()
 	else:
-		line4_y_data.append(0) # Ensure coherent lists dimensions
+		charts3_4_canvas.draw()
 
-	charts1_2_canvas.draw()
-	charts3_4_canvas.draw()
-
+	update1_2 = not update1_2
+	
+	# -------
 	# Warning if a value is 'None' (shown at the very end so the graph code has had a chance to finish running entirely, warning message boxes stop code execution)
-	if failed_PIDs_count > 0 and not warning_already_shown:
+	if len(failed_PIDs) > 0 and not warning_already_shown:
 		warning_str = "The following PIDs data failed to retrieve data from the vehicle:\n\n"
 
 		for pid in failed_PIDs:
@@ -615,7 +642,7 @@ def update_charts():
 			if description != None:
 				warning_str += f"- {description}\n"
 			else:
-				warning_str += f"- {("0" if pid < 16 else "") + hex(pid)[2:].upper()}" # Hexadecimal string without the "0x" prefix
+				warning_str += f"- {utils.hex_to_str_2_digits(pid)}"
 
 		warning_already_shown = True
 		messagebox.showwarning("Warning", warning_str)
@@ -751,7 +778,7 @@ def open_raw_data_dialog():
 		if pid != 0:
 			for supported_pid, description in data.current_vehicle.supported_pids:
 				if supported_pid == pid:
-					column_name = ("0" if pid < 16 else "") + hex(pid)[2:].upper() # Hexadecimal string without the "0x" prefix
+					column_name = utils.hex_to_str_2_digits(pid)
 					column_name += f" - {description} ("
 					column_name += str(selected_recording.data[-1].get(pid).value.units)
 					column_name += ")"

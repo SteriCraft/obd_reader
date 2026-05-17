@@ -98,7 +98,7 @@ def pack():
 
 def update(): # Retrieved from the ECU
 	# Battery voltage
-	battery_voltage = data.last_data.get("BATT_VOLT")
+	battery_voltage = data.get_last_PID_data("BATT_VOLT")
 
 	if battery_voltage != None:
 		vehicle_battery_voltage_label_val.config(text = f"{battery_voltage} V")
@@ -106,7 +106,7 @@ def update(): # Retrieved from the ECU
 		vehicle_battery_voltage_label_val.config(text = "NaN")
 
 	# Fuel level (PID 0x2F)
-	fuel_level = data.last_data.get(0x2F)
+	fuel_level = data.get_last_PID_data(0x2F)
 
 	if fuel_level != None:
 		fuel_level_str = f"{fuel_level.value.magnitude} %"
@@ -121,7 +121,7 @@ def update(): # Retrieved from the ECU
 		vehicle_fuel_level_label_val.config(text = "Not supported")
 	
 	# Fuel system status (PID 0x03)
-	fuel_system_status = data.last_data.get(0x03)
+	fuel_system_status = data.get_last_PID_data(0x03)
 	
 	if fuel_system_status != None:
 		vehicle_fuel_sys_status_label_val.config(text = f"{fuel_system_status}")

@@ -6,6 +6,7 @@ from tkinter import ttk
 import obd_connect
 import ui
 import data
+import utils
 
 
 custom_gauge1_selected_PID = -1
@@ -139,19 +140,19 @@ def on_custom_gauge4_selection_changed(event):
 
 def update():
 	if custom_gauge1_selected_PID != -1:
-		obd_response = data.last_data.get(custom_gauge1_selected_PID)
+		obd_response = data.get_last_PID_data(custom_gauge1_selected_PID)
 		user_selected_gauge1_data_val.config(text = f"{obd_response.value}" if obd_response != None else "NaN")
 
 	if custom_gauge2_selected_PID != -1:
-		obd_response = data.last_data.get(custom_gauge2_selected_PID)
+		obd_response = data.get_last_PID_data(custom_gauge2_selected_PID)
 		user_selected_gauge2_data_val.config(text = f"{obd_response.value}" if obd_response != None else "NaN")
 
 	if custom_gauge3_selected_PID != -1:
-		obd_response = data.last_data.get(custom_gauge3_selected_PID)
+		obd_response = data.get_last_PID_data(custom_gauge3_selected_PID)
 		user_selected_gauge3_data_val.config(text = f"{obd_response.value}" if obd_response != None else "NaN")
 
 	if custom_gauge4_selected_PID != -1:
-		obd_response = data.last_data.get(custom_gauge4_selected_PID)
+		obd_response = data.get_last_PID_data(custom_gauge4_selected_PID)
 		user_selected_gauge4_data_val.config(text = f"{obd_response.value}" if obd_response != None else "NaN")
 
 
@@ -185,7 +186,7 @@ def fill_custom_cauge_combobox(_combo, _defautIndex):
 
 	for pid, description in data.current_vehicle.supported_pids:
 		if not any(usedPID == pid for usedPID in alreadyUsedPIDs):
-			hexPIDstr = ("0" if pid < 16 else "") + hex(pid)[2:].upper() # Hexadecimal string without the "0x" prefix
+			hexPIDstr = utils.hex_to_str_2_digits(pid)
 			availablePIDs.append(f"{hexPIDstr}: {description}")
 
 	_combo["values"] = availablePIDs

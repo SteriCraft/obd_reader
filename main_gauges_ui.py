@@ -6,6 +6,7 @@ import tkinter as tk
 import obd_connect
 import ui
 import data
+import utils
 
 
 gauges_frame = None
@@ -50,7 +51,7 @@ def setup():
 	global coolant_temp_gauge_canvas
 	global coolant_temp_gauge_label_val
 
-	window_bg_color = ui.root.cget("bg") # Retrieve windows's default background color
+	window_bg_color = utils.get_bg_color(ui.root)
 
 	gauges_frame = tk.Frame(ui.top_frame)
 
@@ -132,23 +133,23 @@ def reset():
 
 def update():
 	# RPM (PID 0x0C)
-	rpm = data.last_data.get(0x0C)
+	rpm = data.get_last_PID_data(0x0C)
 	set_rpm_gauge_needle(160, 160, rpm.value.magnitude if rpm != None else -1)
 	
 	# Speed (PID 0x0D)
-	speed = data.last_data.get(0x0D)
+	speed = data.get_last_PID_data(0x0D)
 	set_speed_gauge_needle(160, 160, speed.value.magnitude if speed != None else -1)	
 	
 	# Throttle (PID 0x11)
-	throttle = data.last_data.get(0x11)
+	throttle = data.get_last_PID_data(0x11)
 	set_throttle_gauge(throttle.value.magnitude if throttle != None else -1)
 
 	# Engine load (PID 0x04)
-	load = data.last_data.get(0x04)
+	load = data.get_last_PID_data(0x04)
 	set_engine_load_gauge(load.value.magnitude if load != None else -1)
 
 	# Coolant temp (PID 0x05)
-	temp = data.last_data.get(0x05)
+	temp = data.get_last_PID_data(0x05)
 	set_coolant_temp_gauge(temp.value.magnitude if temp != None else -1)
 
 

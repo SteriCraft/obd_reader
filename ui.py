@@ -2,6 +2,7 @@
 import tkinter as tk
 from tkinter import ttk
 import matplotlib.pyplot as plt
+import time
 
 # Local files
 import obd_connect
@@ -27,10 +28,6 @@ def setup():
 
 	def on_main_window_close():
 		connection_ui.disconnect()
-
-		if data.next_thread_root_after_ID != None:
-			root.after_cancel(data.next_thread_root_after_ID)
-
 		plt.close("all")
 		root.destroy()
 
@@ -52,7 +49,7 @@ def setup():
 
 
 def pack():
-	top_frame.pack(fill = tk.BOTH, expand = True) # 'expand' claims extra space on a resize event, 'fill' uses that space
+	top_frame.pack(fill = tk.BOTH, expand = True)
 	center_frame.pack(expand = True)
 
 	connection_ui.pack()
@@ -64,9 +61,46 @@ def pack():
 	main_gauges_ui.init_needles()
 
 
+# ======= UI UPDATE =======
+update = False
+fps_target = 30 # Hz
+root_after_ID = None # Keep track of UI update scheduling
 
 def update_data():
-	vehicle_information_ui.update()
-	main_gauges_ui.update()
-	custom_gauges_ui.update()
-	record_ui.update_charts()
+	global root_after_ID
+
+	if update:
+		start = time.time()
+
+		# Update process
+		vehicle_information_ui.update()
+		main_gauges_ui.update()
+		custom_gauges_ui.update()
+		record_ui.update_charts()
+
+		# FPS target management
+		elapsed = (time.time() - start) * 1000 # milliseconds
+		waitTime = (1000.0 / fps_target) - elapsed
+
+		if waitTime < 0: # No need to wait
+			waitTime = 0
+
+		root_after_ID = root.after(int(waitTime), update_data)
+
+
+
+def start_update_cycle():
+	global update
+
+	update = True
+	update_data()
+
+
+
+def stop_update_cycle():
+	global update
+
+	update = False
+	
+	if root_after_ID != None:
+		root.after_cancel(root_after_ID) # Cancel next UI update scheduled

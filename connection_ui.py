@@ -2,6 +2,7 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
+import matplotlib.pyplot as plt
 
 # Local files
 import obd_connect
@@ -176,6 +177,11 @@ def update_status_labels(_connectionStatus, _port = "--", _baudrate = "--", _pro
 
 
 def open_connection_dialog():
+	def on_close():
+		ui.stop_update_cycle()
+		plt.close("all")
+		ui.root.destroy()
+
 	dialog = tk.Toplevel(ui.root)
 
 	dialog.title("Connection")
@@ -186,7 +192,7 @@ def open_connection_dialog():
 	dialog.grab_set() # Forbids interactions with the main window
 	dialog.lift() # Shows up above all other windows already opened
 	dialog.focus_force() # Catches keyboard focus
-	dialog.protocol("WM_DELETE_WINDOW", ui.root.destroy) # Closing the dialog will close the whole program
+	dialog.protocol("WM_DELETE_WINDOW", on_close) # Closing the dialog will close the whole program
 
 	dialog.columnconfigure(0, weight = 1)
 	dialog.columnconfigure(1, weight = 1)
@@ -296,14 +302,17 @@ def connect(_port, _baudrate, _protocol, _protocol_str):
 
 
 def disconnect(_connection_lost = False):
-	obd_connect.disconnect()
+	# Stop udate data thread execution
+	data.stop_update_cycle()
+
+	# UI reset
+	ui.stop_update_cycle()
+	data.stop_recording_data()
 	
 	update_status_labels(obd_connect.get_connection_status())
 	main_gauges_ui.reset()
 	custom_gauges_ui.reset()
 	vehicle_information_ui.reset()
-
-	data.stop_recording_data()
 
 	if record_ui.raw_data_dialog != None:
 		record_ui.raw_data_dialog.destroy()
@@ -311,6 +320,8 @@ def disconnect(_connection_lost = False):
 	if record_ui.record_dialog != None:
 		record_ui.record_dialog.destroy()
 
+	# Proper disconnection
+	obd_connect.disconnect()
 	open_connection_dialog()
 
 	if _connection_lost:

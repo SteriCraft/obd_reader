@@ -70,7 +70,8 @@ def open_choose_vehicle_dialog(_while_connected = False):
 			data.current_vehicle.supported_pids = obd_connect.getSupportedPIDs()
 
 			custom_gauges_ui.fill_custom_gauges_selections()
-			data.start_update_data_cycle()
+			data.start_update_cycle()
+			ui.start_update_cycle()
 
 		dialog.destroy()
 

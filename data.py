@@ -3,8 +3,11 @@ import json
 import os
 import threading
 import time
+from time import sleep
 import datetime
 from datetime import datetime
+import copy
+from copy import copy
 
 # Local files
 import obd_connect
@@ -27,7 +30,7 @@ class Vehicle:
 
 class OBD_Data_Unit:
 	def __init__(self):
-		self.values = {} # Empty dictionnary
+		self.values = {} # Empty dictionnary (pid, obd_response or value)
 		self.timestamp = datetime.now()
 
 	def set(self, _pid, _value):
@@ -38,9 +41,10 @@ class OBD_Data_Unit:
 
 
 class OBD_Data_Record_Cycle:
-	def __init__(self, _vehicle):
+	def __init__(self, _vehicle, _recorded_PIDs):
 		self.name = ""
 		self.vehicle = _vehicle
+		self.recorded_PIDs = [pid for pid in _recorded_PIDs if pid != 0] # Given list holds 0s for unselected PIDs
 		self.data = [] # Empty list of OBD_Data_Unit
 
 	def addDataUnit(self, _data_unit):
@@ -52,7 +56,8 @@ current_vehicle = Vehicle()
 recording = False
 data_recordings = []
 current_recording = None
-last_data = None
+temp_data = None # Used to store data as it is retrieved by the thread, the UI doesn't use it
+last_data = None # Last available data for the UI
 
 followed_PIDs = []
 main_window_default_PIDs = [0x03, 0x04, 0x05, 0x0C, 0x0D, 0x11, 0x2F]
@@ -87,50 +92,81 @@ def remove_vehicle(_vehicle):
 
 
 # ======= UPDATE =======
-next_thread_root_after_ID = None
+update_thread = None # Keeps a reference to the thread
+update_data_flag = False # Tells the thread when to stop
+update_frequency_target = 20 # Hz
 
 def update_data_thread_fun():
+	global temp_data
+	global update_data_flag
 	global last_data
-	global next_thread_root_after_ID
 
-	last_data = OBD_Data_Unit()
+	while update_data_flag:
+		start = time.time()
 
-	if recording:
-		retrieve_record_selected_PID_data()
-		current_recording.addDataUnit(last_data)
-	else:
-		retrieve_ELM_data()
-		retrieve_main_window_PID_data()
+		temp_data = OBD_Data_Unit() # Holds temporary data, not for the UI
 
-	try:
-		ui.root.after(0, ui.update_data) # Main thread updates UI
-		
-		if not obd_connect.is_connection_lost():
-			next_thread_root_after_ID = ui.root.after(10, start_update_data_cycle) # 100 Hz, will create the next thread and this one dies
-	except tk.TclError:
-		pass
+		if recording:
+			retrieve_record_selected_PID_data()
+			current_recording.addDataUnit(temp_data)
+		else:
+			retrieve_ELM_data()
+			retrieve_main_window_PID_data()
+
+		last_data = copy(temp_data) # Data is now available for the UI to use
+
+		# Stop updating if the connection is lost
+		if obd_connect.is_connection_lost():
+			ui.root.after(0, lambda: connection_ui.disconnect(True))
+			update_data_flag = False
+			break
+
+		# Frequency target management
+		elapsed = (time.time() - start) * 1000 # milliseconds
+		sleepTime = (1000.0 / update_frequency_target) - elapsed
+
+		if sleepTime > 0: # No need to wait if it was too long
+			sleep(sleepTime / 1000) # seconds
+
+	print("Data update thread stops")
 
 
 
-def start_update_data_cycle():
-	if obd_connect.is_connection_lost():
-		ui.root.after(0, lambda: connection_ui.disconnect(True))
+def start_update_cycle():
+	global update_thread
+	global update_data_flag
+
+	if update_thread != None and update_thread.is_alive():
+		print("[OBD Reader Error]: Data update thread is already running")
 		return
+
+	update_data_flag = True
 
 	update_thread = threading.Thread(target = update_data_thread_fun)
 	update_thread.daemon = True
-
 	update_thread.start()
 
 
 
-def retrieve_ELM_data():
-	if not obd_connect.is_connection_lost():
-		# Battery voltage
-		voltage = obd_connect.get_battery_voltage()
+def stop_update_cycle():
+	global update_data_flag
 
-		if voltage != "NaN":
-			last_data.set("BATT_VOLT", voltage)
+	update_data_flag = False
+
+	if update_thread != None and update_thread.is_alive():
+		update_thread.join()
+
+
+
+def retrieve_ELM_data():
+	if obd_connect.is_connection_lost():
+		return
+
+	# Battery voltage
+	voltage = obd_connect.get_battery_voltage()
+
+	if voltage != "NaN":
+		temp_data.set("BATT_VOLT", voltage)
 
 
 
@@ -149,23 +185,35 @@ def retrieve_main_window_PID_data():
 	followed_PIDs.append(custom_gauges_ui.custom_gauge4_selected_PID)
 
 	for pid in followed_PIDs:
-		if not obd_connect.is_connection_lost():
-			if obd_connect.is_PID_supported(pid):
-				value = obd_connect.retrieve_PID_value(pid)
+		if obd_connect.is_connection_lost():
+			return
 
-				if value != "NaN":
-					last_data.set(pid, value)
+		if obd_connect.is_PID_supported(pid):
+			value = obd_connect.retrieve_PID_value(pid)
+
+			if value != "NaN":
+				temp_data.set(pid, value)
 
 
 
 def retrieve_record_selected_PID_data():
 	for pid in record_ui.selected_PIDs:
-		if not obd_connect.is_connection_lost():
-			if obd_connect.is_PID_supported(pid):
-				value = obd_connect.retrieve_PID_value(pid)
+		if obd_connect.is_connection_lost():
+			return
 
-				if value != "NaN":
-					last_data.set(pid, value)
+		if obd_connect.is_PID_supported(pid):
+			value = obd_connect.retrieve_PID_value(pid)
+
+			if value != "NaN":
+				temp_data.set(pid, value)
+
+
+
+def get_last_PID_data(_pid):
+	if last_data == None:
+		return None
+
+	return last_data.get(_pid)
 
 
 
@@ -213,7 +261,7 @@ def start_recording_data():
 	global current_recording
 
 	recording = True
-	data_recordings.append(OBD_Data_Record_Cycle(current_vehicle))
+	data_recordings.append(OBD_Data_Record_Cycle(current_vehicle, record_ui.selected_PIDs))
 	current_recording = data_recordings[-1]
 
 
