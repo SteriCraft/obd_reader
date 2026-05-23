@@ -1,9 +1,8 @@
 # TODO LIST
 ## Record dialog
-- Add a horizontal scrollbar on graphs, to see more than one minute of data (except when recording)
-- Recordings must be saved on disk somewhere (and files removed when the recording is deleted)
 - Ask the user to confirm recording deletion
-- When viewing a recording, the specification of the vehicle shall be shown
+- Recordings must be saved on disk somewhere (and files removed when the recording is deleted)
+- Add a horizontal scrollbar on graphs, to see more than 30 seconds of data (except when recording)
 - Matplotlib issue may require a check, given that on linux this may not be an issue
 
 ## Connection
